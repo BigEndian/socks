@@ -4,9 +4,16 @@ import (
    "fmt"
    "io"
    "net"
+   "os"
+   "log"
 )
 
-type SocksProxy struct {
+
+var stdout = log.New(os.Stdout, "[Out]   ", log.LstdFlags)
+var debug  = log.New(os.Stderr, "[Debug] ", log.LstdFlags)
+var stderr = log.New(os.Stderr, "[Error] ", log.LstdFlags)
+
+type Proxy struct {
    listener *net.TCPListener
    listen_type string
    listen_addr *net.TCPAddr
@@ -17,8 +24,8 @@ type SocksProxy struct {
 
 // Create a New Socks proxy, using the specified net (tcp4, tcp6, tcp),
 // address, and port.
-func NewSocksProxy(nettype, addr string) (*SocksProxy, error) {
-   sp := new(SocksProxy)
+func NewProxy(nettype, addr string) (*Proxy, error) {
+   sp := new(Proxy)
    sp.listen_type = nettype
 
    resolved_addr, err := net.ResolveTCPAddr(sp.listen_type, addr)
@@ -33,11 +40,11 @@ func NewSocksProxy(nettype, addr string) (*SocksProxy, error) {
    }
    sp.listener = listener
    sp.auth_header = nil
-   fmt.Printf("Listening on %s port %s\n", sp.listen_addr.IP.String(), (int)(sp.listen_addr.Port))
+   stdout.Printf("Listening on %s port %s\n", sp.listen_addr.IP.String(), (int)(sp.listen_addr.Port))
    return sp, nil
 }
-func (sp *SocksProxy) handleTCPConnection(c *net.TCPConn) error {
-   fmt.Printf("handleTCPConnection received connection %+v\n", c)
+func (sp *Proxy) handleTCPConnection(c *net.TCPConn) error {
+   stdout.Printf("handleTCPConnection received connection %+v\n", c)
    c.SetReadBuffer(1024)
    c.SetWriteBuffer(1024)
    defer c.Close()
@@ -53,20 +60,24 @@ func (sp *SocksProxy) handleTCPConnection(c *net.TCPConn) error {
       if err != io.EOF && err != nil {
          panic(err)
       } else if err == io.EOF {
-         fmt.Printf("handleTCPConnection (%+v) caught an EOF\n", c)
+         debug.Printf("handleTCPConnection %+v caught an EOF\n", c)
          break
       }
-      fmt.Printf("Iterating buffer. . .\n\t")
-      for buffer_index := 0; buffer_index < count; buffer_index+=1 {
+      debug.Printf("Iterating buffer. . .\n\t")
+      var buffer_index int
+      for buffer_index = 0; buffer_index < count; buffer_index+=1 {
          fmt.Printf("%d ", read_buffer[buffer_index])
-         if (buffer_index + 1) % 30 == 0 {
+         if (buffer_index + 1) % 30 == 0 && buffer_index + 1 != count {
             fmt.Printf("\n\t")
          }
+      }
+      if (buffer_index + 1) % 30 != 0 {
+         println()
       }
       socks_header, err := ParseHeader(read_buffer, count)
       if err == nil {
          // Valid socks request header
-         fmt.Printf("Received socks header, version %d\n", (int)(socks_header.version))
+         debug.Printf("Received socks header, version %d\n", (int)(socks_header.version))
          c.Write([]byte{0x05, 0x00})
          goto NEXT
       }
@@ -78,28 +89,28 @@ func (sp *SocksProxy) handleTCPConnection(c *net.TCPConn) error {
          panic(err)
       }
 NEXT:
-      println("\nFinished iterating buffer")
+      debug.Println("\nFinished iterating buffer")
 
    }
    fmt.Printf("handleTCPConnection for connection %+v is exiting/closing\n", c)
    return nil
 }
-func (sp *SocksProxy) ListenAndHandle() error {
+func (sp *Proxy) ListenAndHandle() error {
    for {
       conn, err := sp.listener.AcceptTCP()
       if err != nil {
          panic(err)
       }
-      println("Blocking on incoming connection")
+      debug.Println("Blocking on incoming connection")
       sp.handleTCPConnection(conn)
-      println("Unblocked!")
+      debug.Println("Unblocked!")
    }
    return nil
 }
 
 
 func main() {
-   proxy, err := NewSocksProxy("tcp4", "0.0.0.0:1080")
+   proxy, err := NewProxy("tcp4", "0.0.0.0:1080")
    if err != nil {
       panic(err)
    }
