@@ -71,7 +71,7 @@ func (sp *SocksProxy) handleTCPConnection(c *net.TCPConn) error {
          goto NEXT
       }
 
-      _, err = ParseSocksRequestHeader(read_buffer, count)
+      _, err = ParseRequestHeader(read_buffer, count)
       if err == nil {
          // Valid socks request header
       } else {
