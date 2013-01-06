@@ -1,22 +1,31 @@
 package main
 
 import (
-   "fmt"
-   "io"
+//   "fmt"
+//   "io"
    "net"
    "os"
    "log"
+   "sync"
 )
 
 
 var stdout = log.New(os.Stdout, "[Out]   ", log.LstdFlags)
 var debug  = log.New(os.Stderr, "[Debug] ", log.LstdFlags)
 var stderr = log.New(os.Stderr, "[Error] ", log.LstdFlags)
+type ConnectionCount struct {
+   sync.Mutex
+   Count int
+}
 
+const (
+   MAX_CONNECTIONS = 10
+)
 type Proxy struct {
    listener *net.TCPListener
    listen_type string
    listen_addr *net.TCPAddr
+   connections []*Connection
    
    // More socks related things
    auth_header *Header
@@ -40,70 +49,43 @@ func NewProxy(nettype, addr string) (*Proxy, error) {
    }
    sp.listener = listener
    sp.auth_header = nil
+   sp.connections = make([]*Connection, MAX_CONNECTIONS)
    stdout.Printf("Listening on %s port %s\n", sp.listen_addr.IP.String(), (int)(sp.listen_addr.Port))
    return sp, nil
 }
 func (sp *Proxy) handleTCPConnection(c *net.TCPConn) error {
-   stdout.Printf("handleTCPConnection received connection %+v\n", c)
-   c.SetReadBuffer(1024)
-   c.SetWriteBuffer(1024)
-   defer c.Close()
-
-   read_buffer := make([]byte, 1024)
-
-   for {
-      // Clear the buffer
-      for i := 0; i < cap(read_buffer); i+=1 {
-         read_buffer[i] = 0
-      }
-      count, err := c.Read(read_buffer)
-      if err != io.EOF && err != nil {
-         panic(err)
-      } else if err == io.EOF {
-         debug.Printf("handleTCPConnection %+v caught an EOF\n", c)
-         break
-      }
-      debug.Printf("Iterating buffer. . .\n\t")
-      var buffer_index int
-      for buffer_index = 0; buffer_index < count; buffer_index+=1 {
-         fmt.Printf("%d ", read_buffer[buffer_index])
-         if (buffer_index + 1) % 30 == 0 && buffer_index + 1 != count {
-            fmt.Printf("\n\t")
-         }
-      }
-      if (buffer_index + 1) % 30 != 0 {
-         println()
-      }
-      socks_header, err := ParseHeader(read_buffer, count)
-      if err == nil {
-         // Valid socks request header
-         debug.Printf("Received socks header, version %d\n", (int)(socks_header.version))
-         c.Write([]byte{0x05, 0x00})
-         goto NEXT
-      }
-
-      _, err = ParseRequestHeader(read_buffer, count)
-      if err == nil {
-         // Valid socks request header
-      } else {
-         panic(err)
-      }
-NEXT:
-      debug.Println("\nFinished iterating buffer")
-
-   }
-   fmt.Printf("handleTCPConnection for connection %+v is exiting/closing\n", c)
    return nil
 }
-func (sp *Proxy) ListenAndHandle() error {
+func (sp *Proxy) Listen() error {
+   connection_count := new(ConnectionCount)
+   connection_count.Lock()
+   connection_count.Count = 0
+   connection_count.Unlock()
+
    for {
-      conn, err := sp.listener.AcceptTCP()
+      tcp_conn, err := sp.listener.AcceptTCP()
       if err != nil {
          panic(err)
       }
+      connection_count.Lock()
+      connection_count.Count++
+      connection_count.Unlock()
+
+      socks_conn := NewConnection(tcp_conn)
+      go socks_conn.Handle(connection_count)
+      /*if err != nil {
+         stderr.Panicf("NewConnection panicked upon receiving %+v (err %s)\n", socks_conn, err)
+      }
       debug.Println("Blocking on incoming connection")
-      sp.handleTCPConnection(conn)
-      debug.Println("Unblocked!")
+      sp.handleTCPConnection(tcp_conn)
+      debug.Println("Unblocked!")*/
+      if connection_count.Count == MAX_CONNECTIONS {
+         connection_count.Lock()
+         debug.Printf("%d connections are currently in use, where %d is the max\n", connection_count.Count, MAX_CONNECTIONS)
+         debug.Println("Waiting for connection to open up")
+         connection_count.Count--
+         connection_count.Unlock()
+      }
    }
    return nil
 }
@@ -114,5 +96,5 @@ func main() {
    if err != nil {
       panic(err)
    }
-   proxy.ListenAndHandle()
+   proxy.Listen()
 }
