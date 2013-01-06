@@ -2,7 +2,7 @@ package main
 
 import "net"
 
-type SocksConnection struct {
+type Connection struct {
    conn *net.TCPConn
    auth_header *Header
 }
