@@ -65,23 +65,33 @@ func (srh *SocksRequestHeader) String() string {
    base_string := "\tReceived socks version %d request with command %d (%s)\n"
    base_string += "\tAddress type was %d (%s)\n"
    base_string += "\tDestination Address was %s\n"
-   base_string += "\tDestination Port was %s\n"
+   base_string += "\tDestination Port was %d\n"
 
-   request_version := srh.version
-   request_command := srh.command
-   request_command_string := ""
-   request_address_type := srh.address_type
+   version := srh.version
+   command := srh.command
+   command_string := ""
+   address_type := srh.address_type
+   address_string := ""
    
    destination_address := (string)(srh.destination_address)
    destination_port := srh.destination_port
 
-   switch request_command {
-      case SOCKS_COMMAND_CONNECT: request_command_string = "CONNECT"
-      case SOCKS_COMMAND_BIND: request_command_string = "BIND"
-      case SOCKS_COMMAND_UDP_ASSOCIATE: request_command_string = "UDP ASSOCIATE"
+   switch command {
+      case SOCKS_COMMAND_CONNECT: command_string = "CONNECT"
+      case SOCKS_COMMAND_BIND: command_string = "BIND"
+      case SOCKS_COMMAND_UDP_ASSOCIATE: command_string = "UDP ASSOCIATE"
    }
-   var args []interface{} = []interface{}{request_version, request_command, request_command_string, request_address_type}
-   return fmt.Sprintf(base_string, request_version, request_command, request_command_string) +
+
+   switch address_type {
+      case SOCKS_ADDRESS_TYPE_IPV4: address_string = "IPv4"
+      case SOCKS_ADDRESS_TYPE_IPV6: address_string = "IPv6"
+      case SOCKS_ADDRESS_TYPE_DOMAIN_NAME: address_string = "Domain Name"
+   }
+   args := make([]interface{}, 7)
+   args = append(args, version, command, command_string)
+   args = append(args, address_type, address_string)
+   args = append(args, destination_address, destination_port)
+   return fmt.Sprintf(base_string, version, command, command_string) +
           fmt.Sprintf("Text")
 
 }
