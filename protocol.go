@@ -16,10 +16,3 @@ const (
    SOCKS_REPLY_UNASSIGNED_START = 0x09
    SOCKS_REPLY_UNASSIGNED_END = 0xFF
 )
-
-type SocksResponse struct {
-   version byte
-   reply byte
-   // Reserved here, *must* be 0x00
-   reserved byte
-}
