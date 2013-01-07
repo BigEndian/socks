@@ -93,7 +93,7 @@ func (conn *Connection) Handle(count *ConnectionCount) error {
       if err == nil {
          // Valid socks request header
          debug.Printf("Received socks header, version %d\n", (int)(socks_header.version))
-         if socks_header.methods[0] != SOCKS_METHOD_NO_AUTHENTICATION {
+         if socks_header.methods[0] != SOCKS_METHOD_NO_AUTH_REQUIRED {
             conn.tcp_conn.Write([]byte{0x05, 0xFF})
             goto END;
          } else {
