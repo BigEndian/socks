@@ -10,12 +10,34 @@ import (
 )
 
 
-var stdout = log.New(os.Stdout, "[Out]   ", log.LstdFlags)
-var debug  = log.New(os.Stderr, "[Debug] ", log.LstdFlags)
-var stderr = log.New(os.Stderr, "[Error] ", log.LstdFlags)
+var stdout = log.New(os.Stdout, "[OUTPUT] ", log.LstdFlags)
+var debug  = log.New(os.Stderr, "[DEBUG]  ", log.LstdFlags)
+var stderr = log.New(os.Stderr, "[ERROR]  ", log.LstdFlags)
+
 type ConnectionCount struct {
    sync.Mutex
    Count int
+}
+func (cc *ConnectionCount) Increment() {
+   cc.Lock()
+   cc.Count++
+   cc.Unlock()
+}
+func (cc *ConnectionCount) Decrement() {
+   cc.Lock()
+   cc.Count--
+   cc.Unlock()
+}
+func (cc *ConnectionCount) Value() int {
+   cc.Lock()
+   defer cc.Unlock()
+   return cc.Count
+}
+func (cc *ConnectionCount) Apply(f func (int) int) {
+   cc.Lock()
+   res := f(cc.Count)
+   cc.Count = res
+   cc.Unlock()
 }
 
 const (
@@ -58,18 +80,14 @@ func (sp *Proxy) handleTCPConnection(c *net.TCPConn) error {
 }
 func (sp *Proxy) Listen() error {
    connection_count := new(ConnectionCount)
-   connection_count.Lock()
-   connection_count.Count = 0
-   connection_count.Unlock()
+   connection_count.Apply(func (int) int { return 0 })
 
    for {
       tcp_conn, err := sp.listener.AcceptTCP()
       if err != nil {
          panic(err)
       }
-      connection_count.Lock()
-      connection_count.Count++
-      connection_count.Unlock()
+      connection_count.Increment()
 
       socks_conn := NewConnection(tcp_conn)
       go socks_conn.Handle(connection_count)
