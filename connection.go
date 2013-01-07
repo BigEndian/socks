@@ -93,7 +93,12 @@ func (conn *Connection) Handle(count *ConnectionCount) error {
       if err == nil {
          // Valid socks request header
          debug.Printf("Received socks header, version %d\n", (int)(socks_header.version))
-         conn.tcp_conn.Write([]byte{0x05, 0x00})
+         if socks_header.methods[0] != SOCKS_METHOD_NO_AUTHENTICATION {
+            conn.tcp_conn.Write([]byte{0x05, 0xFF})
+            goto END;
+         } else {
+            conn.tcp_conn.Write([]byte{0x05, 0x00})
+         }
          goto NEXT
       }
 
@@ -109,6 +114,7 @@ NEXT:
       debug.Println("Finished iterating buffer")
 
    }
+END:
    debug.Printf("Connection.Handle (%+v) for connection %+v is exiting/closing\n", conn, conn.tcp_conn)
    return nil
 }
