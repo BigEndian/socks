@@ -91,7 +91,6 @@ func (srh *RequestHeader) String() string {
    args = append(args, version, command, command_string)
    args = append(args, address_type, address_string)
    args = append(args, destination_address, destination_port)
-   return fmt.Sprintf(base_string, version, command, command_string) +
-          fmt.Sprintf("Text")
+   return fmt.Sprintf(base_string, args...)
 
 }
