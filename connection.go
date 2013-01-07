@@ -101,7 +101,7 @@ func (conn *Connection) Handle(count *ConnectionCount) error {
       if err == nil {
          // Valid socks request header
          debug.Printf("Received socks request header, version %d\n", (int)(req_header.version))
-         debug.Printf("%s\n", req_header.String())
+         println(req_header.String())
       } else {
          panic(err)
       }
