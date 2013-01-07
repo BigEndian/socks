@@ -48,24 +48,24 @@ func ParseRequestHeader(input []byte, input_count int) (*RequestHeader, error) {
    
    if (srh.address_type == SOCKS_ADDRESS_TYPE_IPV4) {
       srh.destination_address = input[4:8]
-      srh.destination_port = binary.LittleEndian.Uint16(input[8:])
+      srh.destination_port = binary.BigEndian.Uint16(input[8:])
    } else if (srh.address_type == SOCKS_ADDRESS_TYPE_IPV6) {
       srh.destination_address = input[4:20]
-      srh.destination_port = binary.LittleEndian.Uint16(input[20:])
+      srh.destination_port = binary.BigEndian.Uint16(input[20:])
    } else if (srh.address_type == SOCKS_ADDRESS_TYPE_DOMAIN_NAME) {
       // First byte specifies length
       domain_length := input[4]
       srh.destination_address = input[5:(5+domain_length)]
-      srh.destination_port = binary.LittleEndian.Uint16(input[(5+domain_length):])
+      srh.destination_port = binary.BigEndian.Uint16(input[(5+domain_length):])
    }
    return srh, nil
 }
 
 func (srh *RequestHeader) String() string {
-   base_string := "\tReceived socks version %d request with command %d (%s)\n"
-   base_string += "\tAddress type was %d (%s)\n"
-   base_string += "\tDestination Address was %s\n"
-   base_string += "\tDestination Port was %d\n"
+   base_string1 := "\tReceived socks version %d request with command %d (%s)\n"
+   base_string2 := "\tAddress type was %d (%s)\n"
+   base_string3 := "\tDestination Address was %s\n"
+   base_string4 := "\tDestination Port was %d\n"
 
    version := srh.version
    command := srh.command
@@ -87,10 +87,9 @@ func (srh *RequestHeader) String() string {
       case SOCKS_ADDRESS_TYPE_IPV6: address_string = "IPv6"
       case SOCKS_ADDRESS_TYPE_DOMAIN_NAME: address_string = "Domain Name"
    }
-   args := make([]interface{}, 7)
-   args = append(args, version, command, command_string)
-   args = append(args, address_type, address_string)
-   args = append(args, destination_address, destination_port)
-   return fmt.Sprintf(base_string, args...)
+   return fmt.Sprintf(base_string1, version, command, command_string) +
+          fmt.Sprintf(base_string2, address_type, address_string) +
+          fmt.Sprintf(base_string3, destination_address) +
+          fmt.Sprintf(base_string4, destination_port)
 
 }
